@@ -27,12 +27,14 @@ COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/pytho
 
 COPY app/ ./app/
 
-RUN mkdir -p /app/configs
+RUN mkdir -p /app/configs /run/secrets /opt/robot/assets
 
 COPY assets/ /opt/robot/assets/
 
 RUN chown -R robot:robot /app && \
-    chmod -R 755 /app
+    chmod -R 755 /app && \
+    chown -R robot:robot /opt/robot/assets && \
+    chmod -R 755 /opt/robot/assets
 
 # Switch to non-root user
 USER robot
