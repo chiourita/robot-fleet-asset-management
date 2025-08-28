@@ -7,3 +7,10 @@ output "network_info" {
     id          = docker_network.robot_network.id
   }
 }
+
+output "monitoring_endpoints" {
+  description = "Monitoring stack endpoints"
+  value = var.enable_monitoring ? {
+    prometheus = "http://localhost:9090"
+  } : {}
+}
