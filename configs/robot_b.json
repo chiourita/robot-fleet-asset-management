@@ -4,12 +4,12 @@
   "sensors": [
     {
       "type": "sensor_b",
-      "wgs84_coordinates": "",
+      "wgs84_coordinates": "SECRET:robot_b:sensor_b_1:wgs84_coordinates",
       "speed_km_per_h": 45.2
     },
     {
       "type": "sensor_b",
-      "wgs84_coordinates": "",
+      "wgs84_coordinates": "SECRET:robot_b:sensor_b_2:wgs84_coordinates",
       "speed_km_per_h": 67.8
     }
   ]

@@ -5,7 +5,7 @@
     {
       "type": "sensor_a",
       "range": 95.3,
-      "wgs84_coordinates": "",
+      "wgs84_coordinates": "SECRET:robot_c:sensor_a:wgs84_coordinates",
       "bit_mask": "/opt/robot/assets/bit_mask.png"
     },
     {
