@@ -4,9 +4,9 @@ import time
 import logging
 import signal
 import sys
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Union
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel, ValidationError, Field, validator
 
 logging.basicConfig(
@@ -82,6 +82,77 @@ def validate_asset_file(file_path: str, asset_type: str) -> bool:
     except Exception as e:
         log.error(f"Error validating asset file {file_path} for {asset_type}: {e}")
         return False
+
+def read_secret(robot_id: str, sensor_name: str, secret_key: str = "wgs84_coordinates", retry_count: int = 2, retry_delay: int = 5) -> Union[Dict, str]:
+    """Read secret with exponential backoff retry logic"""
+    for attempt in range(retry_count):
+        try:
+            secret_path = f"/run/secrets/{robot_id}"
+            if os.path.exists(secret_path):
+                with open(secret_path, 'r') as f:
+                    secret_data = json.load(f)
+
+                if sensor_name in secret_data and secret_key in secret_data[sensor_name]:
+                    return secret_data[sensor_name][secret_key]
+                else:
+                    raise KeyError(f"Secret {secret_key} not found for sensor {sensor_name} in {robot_id}")
+            
+            # Fallback to environment variables (for local dev)
+            env_key = f"SECRET_{robot_id.upper()}_{sensor_name.upper()}_{secret_key.upper()}"
+            env_value = os.getenv(env_key)
+            if env_value:
+                try:
+                    return json.loads(env_value)
+                except json.JSONDecodeError:
+                    return env_value
+            
+            if attempt < retry_count - 1:
+                backoff_delay = retry_delay * (2 ** attempt)  # exponential backoff
+                log.warning(f"Secret {secret_key} for {sensor_name} in {robot_id} not found, "
+                           f"retrying in {backoff_delay}s (attempt {attempt+1}/{retry_count})")
+                time.sleep(backoff_delay)
+        except Exception as e:
+            if attempt < retry_count - 1:
+                backoff_delay = retry_delay * (2 ** attempt)
+                log.warning(f"Error reading secret {secret_key} for {sensor_name} in {robot_id}: {e}, "
+                           f"retrying in {backoff_delay}s (attempt {attempt+1}/{retry_count})")
+                time.sleep(backoff_delay)
+
+    raise RuntimeError(f"Failed to read secret {secret_key} for {sensor_name} in {robot_id} after {retry_count} attempts")
+
+def resolve_secrets_in_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    robot_id = config.get("robot_id", "unknown")
+    
+    def resolve_value(value, context_sensor_name=None):
+        if isinstance(value, str) and value.startswith("SECRET:"):
+            # Parse SECRET:robot_id:sensor_name:secret_key format
+            parts = value.split(":", 3)
+            if len(parts) >= 3:
+                secret_robot_id = parts[1]
+                secret_sensor_name = parts[2]
+                secret_key = parts[3] if len(parts) > 3 else "wgs84_coordinates"
+                return read_secret(secret_robot_id, secret_sensor_name, secret_key)
+            else:
+                raise ValueError(f"Invalid secret format: {value}. Expected SECRET:robot_id:sensor_name:secret_key")
+        return value
+    
+    def parse_dict(obj, sensor_name=None):
+        if isinstance(obj, dict):
+            return {k: parse_dict(resolve_value(v, sensor_name), sensor_name) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [parse_dict(item, sensor_name) for item in obj]
+        else:
+            return resolve_value(obj, sensor_name)
+    
+    if "sensors" in config:
+        resolved_sensors = []
+        for sensor in config["sensors"]:
+            sensor_name = sensor.get("type", "unknown")
+            resolved_sensor = parse_dict(sensor, sensor_name)
+            resolved_sensors.append(resolved_sensor)
+        config["sensors"] = resolved_sensors
+    
+    return config
 
 def validate_sensor_config(sensor: Dict[str, Any], retry_count: int = 3, retry_delay: int = 5) -> None:
     """Validate individual sensor config and assets with retry logic"""
@@ -180,7 +251,7 @@ async def startup_event():
         
         validate_robot_config(raw_config)
         
-        config = raw_config
+        config = resolve_secrets_in_config(raw_config)
         
         # Store config version if there is one 
         if "version" in config:
