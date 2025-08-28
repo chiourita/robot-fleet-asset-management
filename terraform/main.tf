@@ -69,6 +69,6 @@ resource "local_file" "prometheus_config" {
   
   filename = "${path.module}/prometheus.yml"
   content = templatefile("${path.module}/prometheus.yml.tpl", {
-    robot_targets = ["robot_a:8001", "robot_b:8002", "robot_c:8003"]
+    robot_targets = ["robot_a:8000", "robot_b:8000", "robot_c:8000"]
   })
 }
