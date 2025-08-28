@@ -1,0 +1,11 @@
+{
+  "robot_id": "robot_a",
+  "sensors": [
+    {
+      "type": "sensor_a",
+      "range": 120.5,
+      "wgs84_coordinates": {"lat": 40.7128, "lng": -74.0060},
+      "bit_mask": "/opt/robot/assets/bit_mask.png"
+    }
+  ]
+}
