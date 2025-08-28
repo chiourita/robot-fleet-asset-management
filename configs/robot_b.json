@@ -1,0 +1,16 @@
+{
+  "robot_id": "robot_b",
+  "version": "1.0.0",
+  "sensors": [
+    {
+      "type": "sensor_b",
+      "wgs84_coordinates": "",
+      "speed_km_per_h": 45.2
+    },
+    {
+      "type": "sensor_b",
+      "wgs84_coordinates": "",
+      "speed_km_per_h": 67.8
+    }
+  ]
+}
