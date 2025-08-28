@@ -8,6 +8,7 @@ from typing import Dict, List, Any, Optional, Union
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel, ValidationError, Field, validator
+from prometheus_client import CollectorRegistry, Gauge, Counter, Info, generate_latest, CONTENT_TYPE_LATEST
 
 logging.basicConfig(
     level=logging.INFO,
@@ -336,6 +337,44 @@ async def metrics():
     log.info(f"METRICS: {json.dumps(metrics_data)}")
     
     return metrics_data
+
+# Prometheus metrics setup according to https://prometheus.io/docs/instrumenting/writing_clientlibs/#metrics
+registry = CollectorRegistry()
+
+robot_uptime = Gauge('robot_uptime_seconds', 'Total uptime of the robot in seconds', 
+                    ['robot_id'], registry=registry)
+robot_sensors = Gauge('robot_sensors_total', 'Total number of sensors configured', 
+                     ['robot_id'], registry=registry)
+robot_health_checks = Counter('robot_health_checks_total', 'Total number of health checks performed', 
+                             ['robot_id'], registry=registry)
+robot_errors = Counter('robot_errors_total', 'Total number of errors encountered', 
+                      ['robot_id'], registry=registry)
+robot_retries = Counter('robot_asset_validation_retries_total', 'Total number of asset validation retries', 
+                       ['robot_id'], registry=registry)
+robot_initialized = Gauge('robot_initialized', 'Robot initialization status (1 = initialized, 0 = not initialized)', 
+                         ['robot_id'], registry=registry)
+
+@app.get("/prometheus")
+async def prometheus_metrics():
+    """Get metrics in Prometheus format"""
+    robot_id = STATE.get("robot_id", "unknown")
+    
+    # Update Gauge metrics
+    uptime = int(time.time() - STATE["startup_time"]) if STATE["startup_time"] else 0
+    robot_uptime.labels(robot_id=robot_id).set(uptime)
+    robot_sensors.labels(robot_id=robot_id).set(len(STATE["sensors"]) if STATE["sensors"] else 0)
+    robot_initialized.labels(robot_id=robot_id).set(1 if STATE["initialized"] else 0)
+    
+    # Update Counter metrics
+    robot_health_checks.labels(robot_id=robot_id)._value._value = STATE["health_checks"]
+    robot_errors.labels(robot_id=robot_id)._value._value = len(STATE["errors"])
+    robot_retries.labels(robot_id=robot_id)._value._value = STATE["asset_validation_retries"]
+    
+    # Return metrics in Prometheus format
+    return PlainTextResponse(
+        generate_latest(registry),
+        media_type=CONTENT_TYPE_LATEST
+    )
 
 @app.get("/init")
 async def initialization_info():
