@@ -1,0 +1,98 @@
+version: '3.9'
+
+services:
+  robot_a:
+    image: robot-fleet:${IMAGE_TAG:-latest}
+    container_name: robot_a
+    environment:
+      - ROBOT_CONFIG=/app/config.json
+      - CONFIG_VERSION=${CONFIG_VERSION:-1.0.0}
+    volumes:
+      - ./configs/robot_a.json:/app/config.json:ro
+      - ./assets/robot_a:/opt/robot/assets:ro  # mount robot assets
+    secrets:
+      - robot_a
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - robot-network
+    ports:
+      - "8001:8000"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  robot_b:
+    image: robot-fleet:${IMAGE_TAG:-latest}
+    container_name: robot_b
+    environment:
+      - ROBOT_CONFIG=/app/config.json
+      - CONFIG_VERSION=${CONFIG_VERSION:-1.0.0}
+    volumes:
+      - ./configs/robot_b.json:/app/config.json:ro
+      - ./assets/robot_b:/opt/robot/assets:ro  # mount robot assets (empty in this case)
+    secrets:
+      - robot_b
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - robot-network
+    ports:
+      - "8002:8000"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  robot_c:
+    image: robot-fleet:${IMAGE_TAG:-latest}
+    container_name: robot_c
+    environment:
+      - ROBOT_CONFIG=/app/config.json
+      - CONFIG_VERSION=${CONFIG_VERSION:-1.0.0}
+    volumes:
+      - ./configs/robot_c.json:/app/config.json:ro
+      - ./assets/robot_c:/opt/robot/assets:ro  # mount robot assets
+    secrets:
+      - robot_c
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - robot-network
+    ports:
+      - "8003:8000"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+secrets:
+  robot_a:
+    file: ./secrets/robot_a.json
+  robot_b:
+    file: ./secrets/robot_b.json
+  robot_c:
+    file: ./secrets/robot_c.json
+
+networks:
+  robot-network:
+    driver: bridge
